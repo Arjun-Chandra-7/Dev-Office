@@ -5,7 +5,7 @@ import { useOffice } from '../../store';
 import { openProject } from '../actions';
 import { lift } from '../building/Lift';
 import { DOOR_LOCAL_X, H, hits, inLift, inStairs, OFF_D, stairsY, toWorld, type Box, type BuildingPlan } from '../building/plan';
-import { interactables, type Interactable } from '../interact';
+import { cachedInteractablesList, interactables, type Interactable } from '../interact';
 import { currentPlan } from '../usePlan';
 
 // First-person walking: pointer-lock mouse look, WASD, collisions, stairs and the lift.
@@ -24,12 +24,34 @@ let actRef: () => void = () => undefined;
 // state the pointer-lock controls use, since automated browsers cannot take pointer lock.
 if (import.meta.env.DEV) (window as any).__walk = { player, keys, lift, act: () => actRef(), plan: () => currentPlan };
 
-function blockers(plan: BuildingPlan, floor: number): Box[] {
-  const out: Box[] = [];
-  for (const w of plan.walls) if (w.floor === floor) out.push(w);
-  for (const b of plan.furnitureBoxes) if (b.floor === floor) out.push(b);
-  out.push(...lift.blockers(floor));
-  return out;
+let cachedPlanRef: BuildingPlan | null = null;
+let staticBoxes0: Box[] = [];
+let staticBoxes1: Box[] = [];
+let solidWalls0: Box[] = [];
+let solidWalls1: Box[] = [];
+
+function staticBlockers(plan: BuildingPlan, floor: number): Box[] {
+  if (cachedPlanRef !== plan) {
+    cachedPlanRef = plan;
+    staticBoxes0 = [];
+    staticBoxes1 = [];
+    solidWalls0 = [];
+    solidWalls1 = [];
+    for (const w of plan.walls) {
+      if (w.floor === 0) {
+        staticBoxes0.push(w);
+        if (w.kind === 'solid') solidWalls0.push(w);
+      } else if (w.floor === 1) {
+        staticBoxes1.push(w);
+        if (w.kind === 'solid') solidWalls1.push(w);
+      }
+    }
+    for (const b of plan.furnitureBoxes) {
+      if (b.floor === 0) staticBoxes0.push(b);
+      else if (b.floor === 1) staticBoxes1.push(b);
+    }
+  }
+  return floor === 1 ? staticBoxes1 : staticBoxes0;
 }
 
 function collides(x: number, z: number, boxes: Box[]) {
@@ -137,7 +159,9 @@ export function Player({ plan }: { plan: BuildingPlan }) {
       vz = ((-cy * fwd - sy * strafe) / len) * speed * dt;
     }
     const floor = player.y > H / 2 ? 1 : 0;
-    const boxes = blockers(plan, floor);
+    const staticList = staticBlockers(plan, floor);
+    const liftList = lift.blockers(floor);
+    const boxes = liftList.length ? [...staticList, ...liftList] : staticList;
     // resolve per axis so you slide along walls; sub-step to never tunnel through thin glass
     const steps = Math.ceil(Math.max(Math.abs(vx), Math.abs(vz)) / 0.08) || 1;
     for (let i = 0; i < steps; i++) {
@@ -171,9 +195,24 @@ export function Player({ plan }: { plan: BuildingPlan }) {
     // --- aim: what is under the crosshair ---
     ray.current.setFromCamera(new THREE.Vector2(0, 0), camera);
     ray.current.far = REACH;
-    const hitsList = ray.current.intersectObjects([...interactables.keys()], false);
+    const hitsList = ray.current.intersectObjects(cachedInteractablesList, false);
     const top = hitsList[0];
-    const info = top ? interactables.get(top.object) ?? null : null;
+    let info = top ? interactables.get(top.object) ?? null : null;
+    if (top && info?.kind === 'laptop') {
+      const camPos = camera.position;
+      const hitPos = top.point;
+      const minX = Math.min(camPos.x, hitPos.x);
+      const maxX = Math.max(camPos.x, hitPos.x);
+      const minZ = Math.min(camPos.z, hitPos.z);
+      const maxZ = Math.max(camPos.z, hitPos.z);
+      const solids = player.floor === 1 ? solidWalls1 : solidWalls0;
+      for (const b of solids) {
+        if (b.maxX > minX && b.minX < maxX && b.maxZ > minZ && b.minZ < maxZ) {
+          info = null;
+          break;
+        }
+      }
+    }
     aim.current = top && info ? { obj: top.object, info } : null;
     const hint = info ? info.label : null;
     if (useOffice.getState().hint !== hint) useOffice.setState({ hint });
