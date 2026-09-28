@@ -41,40 +41,48 @@ function Sun({ plan, quality }: { plan: BuildingPlan; quality: 'high' | 'low' })
     cam.updateProjectionMatrix();
     l.shadow.needsUpdate = true;
   }, [plan, target]);
-  const size = quality === 'high' ? 4096 : 1024;
+  const size = quality === 'high' ? 2048 : 1024;
   return (
     <>
       <primitive object={target} />
       <directionalLight
         key={size}
         ref={light}
-        color="#ffc38a"
-        intensity={5.2}
+        color="#ffd2a8"
+        intensity={5.4}
         castShadow
         shadow-mapSize={[size, size]}
-        shadow-bias={-0.00025}
+        shadow-bias={-0.0003}
         shadow-normalBias={0.035}
       />
     </>
   );
 }
 
-/** Interior fill: a few fixed lights (constant count → no shader recompiles). */
+/** Interior fill: warm architectural downlights. */
 function InteriorLights({ plan }: { plan: BuildingPlan }) {
-  const xs = [4, plan.length * 0.4, plan.length * 0.8];
+  const xs = [5, plan.length * 0.45, plan.length * 0.85];
   return (
     <>
       {[0, 1].flatMap((f) =>
-        xs.map((x, i) => <pointLight key={`${f}${i}`} position={[x, f * H + 2.85, 0]} intensity={16} distance={18} decay={1.7} color="#ffdcae" />),
+        xs.map((x, i) => (
+          <pointLight
+            key={`${f}${i}`}
+            position={[x, f * H + 2.8, 0]}
+            intensity={14}
+            distance={16}
+            decay={1.8}
+            color="#ffe2ba"
+          />
+        )),
       )}
     </>
   );
 }
 
 /**
- * The sun and the building are static, so re-rendering the 4K shadow map every frame is wasted
- * work (it was the single biggest cost: ~29 → ~80 fps). Refresh it ~5×/s instead, which is
- * plenty for agents' small motions and the lift.
+ * Shadow update policy: keep static shadows cached; refresh rapidly only when the lift moves,
+ * and gently (1.5s) when idle, eliminating the 5Hz frame stutter.
  */
 function ShadowThrottle() {
   const gl = useThree((s) => s.gl);
@@ -87,7 +95,9 @@ function ShadowThrottle() {
     };
   }, [gl]);
   useFrame(({ clock }) => {
-    if (clock.elapsedTime - last.current > 0.2) {
+    const moving = lift.busy();
+    const interval = moving ? 0.08 : 1.5;
+    if (clock.elapsedTime - last.current > interval) {
       last.current = clock.elapsedTime;
       gl.shadowMap.needsUpdate = true;
     }
@@ -145,7 +155,7 @@ function World() {
         return spot ? <OfficeUnit key={p.id} project={p} spot={spot} visible={floors[spot.floor]} /> : null;
       })}
       <Sun plan={plan} quality={quality} />
-      <hemisphereLight args={['#9cc4ff', '#4a3526', 0.12]} />
+      <hemisphereLight args={['#9cc4ff', '#4a3526', 0.14]} />
       {!dbgOff('lights') && <InteriorLights plan={plan} />}
       {walking ? <Player key="player" plan={plan} /> : <OverviewRig plan={plan} />}
       {!walking && <LabelProjector plan={plan} />}
@@ -163,27 +173,50 @@ export function Scene() {
     <Canvas
       shadows={!dbgOff('shadow')}
       frameloop="demand"
-      dpr={high ? [1, 2] : 1}
-      gl={{ antialias: false, powerPreference: 'high-performance', stencil: false }}
+      dpr={high ? Math.min(typeof window !== 'undefined' ? window.devicePixelRatio : 1, 1.35) : 1}
+      gl={{
+        antialias: false,
+        powerPreference: 'high-performance',
+        stencil: false,
+        toneMapping: THREE.ACESFilmicToneMapping,
+        toneMappingExposure: 1.06,
+      }}
       camera={{ fov: 38, near: 0.1, far: 1500, position: [40, 40, 40] }}
     >
-      <Sky distance={900} sunPosition={SUN_DIR.clone().multiplyScalar(100).toArray()} turbidity={7} rayleigh={2.2} mieCoefficient={0.006} mieDirectionalG={0.86} />
-      {!dbgOff('env') && <Environment resolution={256} frames={1} environmentIntensity={0.45}>
-        <Sky sunPosition={SUN_DIR.clone().multiplyScalar(100).toArray()} turbidity={7} rayleigh={2.2} mieCoefficient={0.006} mieDirectionalG={0.86} />
-        <Lightformer form="rect" intensity={2.5} color="#fff3e0" position={[0, 8, 0]} rotation-x={Math.PI / 2} scale={[20, 20, 1]} />
-        <Lightformer form="rect" intensity={1.2} color="#ffb070" position={[-10, 2, -10]} scale={[10, 4, 1]} />
-      </Environment>}
-      <fog attach="fog" args={['#e7b88f', 120, 520]} />
+      <Sky distance={900} sunPosition={SUN_DIR.clone().multiplyScalar(100).toArray()} turbidity={6.5} rayleigh={2.0} mieCoefficient={0.005} mieDirectionalG={0.88} />
+      {!dbgOff('env') && (
+        <Environment resolution={256} frames={1} environmentIntensity={0.5}>
+          <Sky sunPosition={SUN_DIR.clone().multiplyScalar(100).toArray()} turbidity={6.5} rayleigh={2.0} mieCoefficient={0.005} mieDirectionalG={0.88} />
+          <Lightformer form="rect" intensity={2.2} color="#fff1dc" position={[0, 8, 0]} rotation-x={Math.PI / 2} scale={[20, 20, 1]} />
+          <Lightformer form="rect" intensity={1.1} color="#ffa868" position={[-10, 2, -10]} scale={[10, 4, 1]} />
+        </Environment>
+      )}
+      <fog attach="fog" args={['#e8be96', 110, 500]} />
       <World />
-      {!dbgOff('post') && <EffectComposer multisampling={0} enableNormalPass={false}>
-        {high ? <N8AO aoRadius={0.9} distanceFalloff={0.6} intensity={2.6} halfRes quality="medium" /> : <></>}
-        <Bloom intensity={0.55} luminanceThreshold={1.0} luminanceSmoothing={0.25} mipmapBlur />
-        <ToneMapping mode={ToneMappingMode.ACES_FILMIC} />
-        <HueSaturation saturation={0.1} />
-        <BrightnessContrast contrast={0.1} />
-        {high ? <SMAA /> : <></>}
-        <Vignette offset={0.3} darkness={0.45} />
-      </EffectComposer>}
+      {!dbgOff('post') && (
+        <EffectComposer multisampling={0} enableNormalPass={false}>
+          {high && (
+            <N8AO
+              aoRadius={1.1}
+              distanceFalloff={0.7}
+              intensity={2.2}
+              halfRes
+              quality="low"
+            />
+          )}
+          <Bloom
+            intensity={0.42}
+            luminanceThreshold={1.1}
+            luminanceSmoothing={0.35}
+            mipmapBlur
+          />
+          <ToneMapping mode={ToneMappingMode.ACES_FILMIC} />
+          <BrightnessContrast contrast={0.08} brightness={0.02} />
+          <HueSaturation saturation={0.08} />
+          {high && <SMAA />}
+          <Vignette offset={0.32} darkness={0.4} />
+        </EffectComposer>
+      )}
     </Canvas>
   );
 }
