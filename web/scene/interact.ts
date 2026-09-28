@@ -7,11 +7,16 @@ export type Interactable =
   | { kind: 'lift-panel'; label: string };
 
 export const interactables = new Map<THREE.Object3D, Interactable>();
+export let cachedInteractablesList: THREE.Object3D[] = [];
 
 export function register(obj: THREE.Object3D | null, info: Interactable) {
   if (!obj) return () => undefined;
   interactables.set(obj, info);
+  cachedInteractablesList = Array.from(interactables.keys());
   return () => {
-    if (interactables.get(obj) === info) interactables.delete(obj);
+    if (interactables.get(obj) === info) {
+      interactables.delete(obj);
+      cachedInteractablesList = Array.from(interactables.keys());
+    }
   };
 }
