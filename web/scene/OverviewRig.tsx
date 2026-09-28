@@ -72,10 +72,10 @@ export function OverviewRig({ plan }: { plan: BuildingPlan }) {
     if (!o) return;
     const st = useOffice.getState();
     if (st.viewFloor !== o.floor) st.setViewFloor(o.floor as 0 | 1);
-    const f = Math.max(1, 1.25 / (size.width / Math.max(1, size.height)));
+    const f = Math.max(1, 1.2 / (size.width / Math.max(1, size.height)));
     // look into the room from above the corridor side
     const back = -o.side; // towards the corridor
-    c.setLookAt(o.x + 1.2 * f, o.y + 6.2 * f, o.z + back * 6.4 * f, o.x, o.y + 0.6, o.z + o.side * 0.3, true);
+    c.setLookAt(o.x + 0.9 * f, o.y + 4.8 * f, o.z + back * 4.9 * f, o.x, o.y + 0.7, o.z + o.side * 0.3, true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focusNonce, selectedId, plan]);
 
