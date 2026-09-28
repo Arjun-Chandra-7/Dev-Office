@@ -261,6 +261,60 @@ function Surroundings({ plan }: { plan: BuildingPlan }) {
     return out;
   }, [L]);
 
+  const treeMeshes = useMemo(() => {
+    const trunkGeo = new THREE.CylinderGeometry(0.1, 0.17, 3, 7);
+    const leafMat = new THREE.MeshStandardMaterial({ roughness: 0.82, flatShading: true });
+    const leafColors = ['#2f5a28', '#3c6b30', '#4d7a36'].map((c) => new THREE.Color(c));
+
+    const trunkMesh = new THREE.InstancedMesh(trunkGeo, TREE.bark, trees.length);
+    trunkMesh.castShadow = true;
+    trunkMesh.receiveShadow = false;
+
+    const totalBlobs = trees.length * TREE.blobs.length;
+    const leafMesh = new THREE.InstancedMesh(TREE.geo, leafMat, totalBlobs);
+    leafMesh.castShadow = true;
+    leafMesh.receiveShadow = false;
+
+    const mtx = new THREE.Matrix4();
+    const rot = new THREE.Quaternion();
+    const pos = new THREE.Vector3();
+    const scl = new THREE.Vector3();
+
+    let blobIdx = 0;
+    trees.forEach(([x, z], i) => {
+      const sc = 0.8 + ((i * 37) % 10) / 20;
+      const rotY = i * 1.7;
+      rot.setFromAxisAngle(new THREE.Vector3(0, 1, 0), rotY);
+
+      pos.set(x, 1.5 * sc, z);
+      scl.set(sc, sc, sc);
+      mtx.compose(pos, rot, scl);
+      trunkMesh.setMatrixAt(i, mtx);
+
+      TREE.blobs.forEach((b, j) => {
+        const bp = new THREE.Vector3(...b.p).applyQuaternion(rot).multiplyScalar(sc);
+        pos.set(x + bp.x, b.p[1] * sc, z + bp.z);
+        scl.set(b.s[0] * sc, b.s[1] * sc, b.s[2] * sc);
+        mtx.compose(pos, rot, scl);
+        leafMesh.setMatrixAt(blobIdx, mtx);
+        leafMesh.setColorAt(blobIdx, leafColors[(i + j) % leafColors.length]);
+        blobIdx++;
+      });
+    });
+
+    trunkMesh.instanceMatrix.needsUpdate = true;
+    leafMesh.instanceMatrix.needsUpdate = true;
+    if (leafMesh.instanceColor) leafMesh.instanceColor.needsUpdate = true;
+
+    return { trunkMesh, leafMesh, trunkGeo, leafMat };
+  }, [trees]);
+  useEffect(() => () => {
+    treeMeshes.trunkMesh.dispose();
+    treeMeshes.leafMesh.dispose();
+    treeMeshes.trunkGeo.dispose();
+    treeMeshes.leafMat.dispose();
+  }, [treeMeshes]);
+
   return (
     <group>
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[L / 2, -0.02, 0]} material={m.grass} receiveShadow>
@@ -274,19 +328,8 @@ function Surroundings({ plan }: { plan: BuildingPlan }) {
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[-16, -0.005, 0]} material={m.asphalt} receiveShadow>
         <planeGeometry args={[9, 400]} />
       </mesh>
-      {trees.map(([x, z], i) => {
-        const sc = 0.8 + ((i * 37) % 10) / 20;
-        return (
-          <group key={i} position={[x, 0, z]} scale={sc} rotation={[0, i * 1.7, 0]}>
-            <mesh position={[0, 1.5, 0]} material={TREE.bark} castShadow>
-              <cylinderGeometry args={[0.1, 0.17, 3, 7]} />
-            </mesh>
-            {TREE.blobs.map((b, j) => (
-              <mesh key={j} position={b.p} scale={b.s} geometry={TREE.geo} material={TREE.leaves[(i + j) % 3]} castShadow receiveShadow />
-            ))}
-          </group>
-        );
-      })}
+      <primitive object={treeMeshes.trunkMesh} />
+      <primitive object={treeMeshes.leafMesh} />
       {!dbgOff('city') && <primitive object={inst} />}
     </group>
   );
