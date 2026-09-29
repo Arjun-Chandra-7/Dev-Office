@@ -1,0 +1,81 @@
+{
+  "about": {
+    "name": "Arjun Chandra",
+    "tagline": "Student · AI developer · builder",
+    "photo": "/about/arjun.webp",
+    "paragraphs": [
+      "I’m **Arjun Chandra**, a student, AI developer, and builder who enjoys turning ambitious ideas into working systems. My work spans **AI, machine learning, agentic systems, computer vision, automation, and full-stack development**, with projects ranging from JARVIS and CrickLytics to custom games, AI models, and content intelligence platforms.",
+      "I’m particularly interested in understanding how things work beneath the surface, whether that means reproducing a GPT-style model from scratch, building an AI that can interact with a computer, or turning an ordinary camera into a cricket analytics system. I learn by building, breaking, debugging, and rebuilding until the idea actually works.",
+      "My goal is simple: **build technology that feels less like a demo and more like something that could genuinely exist.**"
+    ]
+  },
+  "merge": {
+    "Jarvis": ["Jarvis-daily-brain", "Jarvis-integration", "Jarvis-study-companion", "jarvis-backups"]
+  },
+  "projects": {
+    "Viralyst": {
+      "title": "Viralyst",
+      "summary": "**Viralyst** is an AI-powered content intelligence engine built to reverse-engineer why short-form content goes viral. It breaks videos down into structured signals across hooks, scripts, visuals, pacing, audio, and audience response, turning thousands of chaotic reels into a machine-readable dataset. That data powers models designed to understand, predict, and generate high-performing content, while preserving full data lineage so every model insight can be traced back to its underlying source material.",
+      "github": [
+        "https://github.com/Arjun-Chandra-7/YT-Searcher",
+        "https://github.com/Arjun-Chandra-7/Client-Brain",
+        "https://github.com/Arjun-Chandra-7/Music-SFX",
+        "https://github.com/Arjun-Chandra-7/UI-Viralyst",
+        "https://github.com/Arjun-Chandra-7/Extractor-Viralyst",
+        "https://github.com/Arjun-Chandra-7/Online-Video-Editor",
+        "https://github.com/Arjun-Chandra-7/Discriminator",
+        "https://github.com/Arjun-Chandra-7/Script-Writer"
+      ],
+      "link": "https://viralyst-phi.vercel.app"
+    },
+    "Cric-Coach": {
+      "title": "CrickLytics",
+      "summary": "**CrickLytics** is an AI-powered cricket biomechanics and performance analytics system that turns ordinary single-camera footage into detailed player insights. It uses 3D pose estimation, motion tracking, phase segmentation, and machine learning to analyze batting technique, classify shots, and reconstruct movement through a 3D digital twin. The system combines this analysis with real-time video pairing and an AI mentor to provide personalized, actionable coaching from footage that would normally require expensive multi-camera setups.",
+      "github": ["https://github.com/Arjun-Chandra-7/CrickLytics"],
+      "link": null
+    },
+    "Pen-Fight": {
+      "title": "Pen Fight",
+      "summary": "**Pen Fight** is a physics-based multiplayer browser game inspired by the classic desk game, rebuilt as a fully digital experience. It features realistic physics, player authentication, cloud-saved progress, multiple game modes, and adaptive AI opponents that adjust to the player's performance. The project combines real-time gameplay systems, game-state management, physics simulation, and persistent backend infrastructure into a lightweight browser experience.",
+      "github": ["https://github.com/Arjun-Chandra-7/Pen-Fight"],
+      "link": "https://pen-fight-lemon.vercel.app"
+    },
+    "Byte-Lab": {
+      "aliases": ["Byte-Labs", "Byte-Eats", "ByteLab", "Byte-Lab"],
+      "title": "Byte Labs",
+      "summary": "**Byte Labs** is a technology and product engineering studio focused on building intelligent software systems that bridge AI, automation, and real-world workflows. It serves as an experimental environment for developing and shipping products across AI agents, developer tools, automation, and interactive applications, turning ambitious technical ideas into working systems rather than leaving them to die in a folder named `final_final_v2`.",
+      "github": ["https://github.com/Arjun-Chandra-7/Byte-Lab"],
+      "link": "https://byte-eats-delta.vercel.app"
+    },
+    "GPT-2": {
+      "title": "GPT-2 Reproduction",
+      "summary": "**GPT-2 Reproduction** is a from-scratch implementation of a GPT-style language model built while following Andrej Karpathy’s deep-dive into the architecture and training process behind GPT-2. The project involved implementing the Transformer architecture, self-attention, token embeddings, positional encoding, residual connections, layer normalization, and autoregressive training, providing a hands-on understanding of how modern language models are actually built and trained rather than simply consumed through an API.",
+      "github": [],
+      "link": null
+    },
+    "EPL": {
+      "title": "EPL Website",
+      "summary": "**EPL Website** is a custom sports platform built for my school’s in-house cricket league, where matches were played using books as bats and a foil ball. The website digitized the entire tournament experience, bringing together teams, players, fixtures, match results, standings, and league updates in one interactive interface. Built specifically around the school’s unique format, it transformed a chaotic, improvised cricket tournament into a structured digital league experience.",
+      "github": ["https://github.com/Arjun-Chandra-7/Euclid-Premier-League"],
+      "link": "https://epl-f4cea.web.app"
+    },
+    "Jarvis": {
+      "title": "JARVIS",
+      "summary": "**JARVIS** is an agentic personal AI system designed to move beyond conversation into actual execution. It combines Claude Agent SDK orchestration, persistent Obsidian-based memory, semantic recall, voice interaction, screen vision, proactive routines, and integrations with services such as Telegram and Google. It can understand context, reason across tasks, interact with the computer, maintain long-term knowledge, and proactively execute workflows, forming a foundation for a persistent AI layer that can operate across both digital environments and the user's everyday workflow.",
+      "github": ["https://github.com/Arjun-Chandra-7/JARVIS"],
+      "link": null
+    },
+    "Linkdin": {
+      "title": "Automated LinkedIn Bot",
+      "summary": "**Automated LinkedIn Bot** is an autonomous content automation system that manages my LinkedIn presence with minimal manual intervention. It generates or processes posts, handles scheduling and publishing, and maintains a consistent posting workflow through automation. The project demonstrates how agentic workflows can turn a repetitive social-media task into a reliable end-to-end system, from content preparation to automated publishing.",
+      "github": ["https://github.com/Arjun-Chandra-7/Linkdin-Bot"],
+      "link": null
+    },
+    "Portfolio": {
+      "title": "Portfolio",
+      "summary": "Just my portfolio lol",
+      "github": ["https://github.com/Arjun-Chandra-7/portfolio"],
+      "link": "https://arjun-chandra-portfolio.vercel.app"
+    }
+  }
+}

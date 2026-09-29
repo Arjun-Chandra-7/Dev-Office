@@ -95,11 +95,15 @@ export function WalkHud() {
             <p className="muted">Click anywhere to take control.</p>
             <dl>
               <dt>W A S D</dt>
-              <dd>move · Shift to run</dd>
+              <dd>move · hold Shift to sprint</dd>
+              <dt>Space</dt>
+              <dd>jump</dd>
               <dt>Mouse</dt>
               <dd>look around</dd>
               <dt>E / click</dt>
-              <dd>use laptop (Claude sessions) · call &amp; ride the lift</dd>
+              <dd>read about a project at its laptop · ride the lift</dd>
+              <dt>Lift</dt>
+              <dd>step in front of it and it comes to you · inside, press E (or 1 / 2)</dd>
               <dt>Esc</dt>
               <dd>release the mouse</dd>
               <dt>V</dt>

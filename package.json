@@ -12,9 +12,11 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "tsx --test server/*.test.ts",
     "check:security": "node scripts/security-check.mjs",
+    "bake": "scripts/bake-kit.sh",
     "check:live": "node scripts/live-probe.mjs"
   },
   "devDependencies": {
+    "@gltf-transform/cli": "^4.5.1",
     "@types/express": "^5.0.6",
     "@types/node": "^26.6.3",
     "@types/react": "^19.3.0",

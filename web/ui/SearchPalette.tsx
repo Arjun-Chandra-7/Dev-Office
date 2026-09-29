@@ -1,26 +1,25 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { Project } from '../../shared/types';
-import { deskStatus, gitDirtyCount, useOffice } from '../store';
+import type { PortfolioProject } from '../../shared/types';
+import { openProject } from '../scene/actions';
+import { STATUS_LABEL, deskStatus, useOffice } from '../store';
 
-const NO_PROJECTS: Project[] = [];
+const NO_PROJECTS: PortfolioProject[] = [];
 
 /** Subsequence fuzzy score; higher is better, -1 = no match. */
-function score(q: string, p: Project) {
-  const hay = `${p.name} ${p.description.text ?? ''} ${p.repos.map((r) => r.github?.repo ?? '').join(' ')}`.toLowerCase();
-  const name = p.name.toLowerCase();
+function score(q: string, p: PortfolioProject) {
+  const name = `${p.title} ${p.name}`.toLowerCase();
   if (!q) return 0;
-  if (name.startsWith(q)) return 100;
+  if (p.title.toLowerCase().startsWith(q)) return 100;
   if (name.includes(q)) return 80;
   let i = 0;
   for (const ch of name) if (ch === q[i]) i++;
   if (i === q.length) return 50;
-  return hay.includes(q) ? 20 : -1;
+  return (p.summary ?? '').toLowerCase().includes(q) ? 20 : -1;
 }
 
 export function SearchPalette() {
   const open = useOffice((s) => s.paletteOpen);
   const setPalette = useOffice((s) => s.setPalette);
-  const select = useOffice((s) => s.select);
   const projects = useOffice((s) => s.snapshot?.projects ?? NO_PROJECTS);
   const [q, setQ] = useState('');
   const [idx, setIdx] = useState(0);
@@ -36,28 +35,28 @@ export function SearchPalette() {
 
   const results = useMemo(() => {
     const qq = q.trim().toLowerCase();
+    const rank = { working: 2, online: 1, offline: 0 };
     return projects
       .map((p) => ({ p, s: score(qq, p) }))
       .filter((x) => x.s >= 0)
-      .sort((a, b) => b.s - a.s || b.p.claude.working - a.p.claude.working || b.p.claude.live - a.p.claude.live || a.p.name.localeCompare(b.p.name))
-      .slice(0, 50)
+      .sort((a, b) => b.s - a.s || rank[b.p.status] - rank[a.p.status] || a.p.title.localeCompare(b.p.title))
       .map((x) => x.p);
   }, [q, projects]);
 
   if (!open) return null;
-  const go = (p: Project | undefined) => {
+  const go = (p: PortfolioProject | undefined) => {
     if (!p) return;
     setPalette(false);
-    select(p.id);
+    openProject(p.id, false);
   };
 
   return (
     <div className="modal-backdrop top" onMouseDown={(e) => e.target === e.currentTarget && setPalette(false)}>
-      <div className="palette" role="dialog" aria-label="Search projects">
+      <div className="palette" role="dialog" aria-label="Find a project">
         <input
           ref={input}
           value={q}
-          placeholder="Search projects…"
+          placeholder="Find a project…"
           onChange={(e) => {
             setQ(e.target.value);
             setIdx(0);
@@ -76,19 +75,14 @@ export function SearchPalette() {
           }}
         />
         <ul>
-          {results.map((p, i) => {
-            const st = deskStatus(p);
-            const dirty = gitDirtyCount(p);
-            return (
-              <li key={p.id} className={i === idx ? 'active' : ''} onMouseEnter={() => setIdx(i)} onClick={() => go(p)}>
-                <span className={`dot s-${st}`} />
-                <span className="name">{p.name}</span>
-                <span className="desc">{p.description.text ?? ''}</span>
-                {p.claude.live > 0 && <span className="chip cyan">{p.claude.live} claude</span>}
-                {dirty > 0 && <span className="chip amber">±{dirty}</span>}
-              </li>
-            );
-          })}
+          {results.map((p, i) => (
+            <li key={p.id} className={i === idx ? 'active' : ''} onMouseEnter={() => setIdx(i)} onClick={() => go(p)}>
+              <span className={`dot s-${deskStatus(p)}`} />
+              <span className="name">{p.title}</span>
+              <span className="desc">{(p.summary ?? '').replace(/\*\*|`/g, '')}</span>
+              <span className={`chip ${p.status === 'offline' ? '' : 'cyan'}`}>{STATUS_LABEL[p.status]}</span>
+            </li>
+          ))}
           {!results.length && <li className="empty">No projects match “{q}”</li>}
         </ul>
       </div>

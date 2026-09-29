@@ -2,31 +2,29 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { hits, inStairs, makeBuildingPlan, stairsY, H } from '../web/scene/building/plan.ts';
 import { encodeProjectDir } from './claude.ts';
-import { parseGithubRemote, parseStatus, redactRemote } from './git.ts';
-import { slugify } from './office.ts';
+import { contentFor, loadContent, mergeMap, slugify, statusOf } from './office.ts';
 
-test('parseGithubRemote handles https, ssh and non-GitHub remotes', () => {
-  assert.deepEqual(parseGithubRemote('https://github.com/Arjun-Chandra-7/JARVIS.git'), { owner: 'Arjun-Chandra-7', repo: 'JARVIS' });
-  assert.deepEqual(parseGithubRemote('git@github.com:owner/repo.name.git'), { owner: 'owner', repo: 'repo.name' });
-  assert.deepEqual(parseGithubRemote('ssh://git@github.com/owner/repo'), { owner: 'owner', repo: 'repo' });
-  assert.equal(parseGithubRemote('https://gitlab.com/owner/repo.git'), null);
-  assert.equal(parseGithubRemote(null), null);
+test('content: Jarvis extras merge into Jarvis, lookups are case-insensitive', () => {
+  const c = loadContent();
+  const m = mergeMap(c);
+  for (const f of ['Jarvis-daily-brain', 'Jarvis-integration', 'Jarvis-study-companion', 'jarvis-backups']) assert.equal(m.get(f.toLowerCase()), 'jarvis');
+  assert.equal(m.has('jarvis'), false);
+  assert.equal(contentFor(c, 'cric-coach')?.title, 'CrickLytics');
+  assert.equal(contentFor(c, 'Byte-Eats')?.title, 'Byte Labs');
+  assert.equal(contentFor(c, 'Unknown-Folder'), null);
 });
 
-test('redactRemote strips embedded credentials', () => {
-  assert.equal(redactRemote('https://user:ghp_secret@github.com/o/r.git'), 'https://github.com/o/r.git');
-  assert.equal(redactRemote('git@github.com:o/r.git'), 'git@github.com:o/r.git');
-});
-
-test('parseStatus counts porcelain v1 states and branch info', () => {
-  const s = parseStatus('## main...origin/main [ahead 2, behind 1]\n M a.ts\nM  b.ts\nMM c.ts\n?? d.ts\nUU e.ts\n');
-  assert.equal(s.branch, 'main');
-  assert.equal(s.upstream, 'origin/main');
-  assert.equal(s.ahead, 2);
-  assert.equal(s.behind, 1);
-  assert.deepEqual(s.counts, { staged: 2, modified: 2, untracked: 1, conflicted: 1 });
-  assert.equal(parseStatus('## No commits yet on main\n').branch, 'main');
-  assert.equal(parseStatus('## HEAD (no branch)\n').detached, true);
+test('status: working beats online beats offline; standby spares are not sessions', () => {
+  const proc = (pid: number, status: string | null, spare = false) =>
+    ({ pid, cwd: '/x', startedAt: 0, procStart: String(pid), procState: 'S', argv: ['claude'], kind: 'interactive', command: 'claude',
+       sessionFile: status === null ? null : { pid, status, spare } }) as any;
+  assert.equal(statusOf([]).status, 'offline');
+  assert.equal(statusOf([proc(1, null)]).status, 'online');
+  assert.equal(statusOf([proc(1, 'idle'), proc(2, 'busy')]).status, 'working');
+  assert.equal(statusOf([proc(1, 'idle', true)]).status, 'offline');
+  const { agents } = statusOf([proc(1, 'busy'), proc(2, 'idle')]);
+  assert.equal(agents.length, 2);
+  assert.ok(agents.every((a) => /^[0-9a-f]{12}$/.test(a.id)), 'agent ids are opaque hashes');
 });
 
 test('slugify produces safe, stable ids', () => {

@@ -2,7 +2,7 @@ import { useFrame } from '@react-three/fiber';
 import { useEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { register } from '../interact';
-import { M } from './materials';
+import { R } from '../runtimeMats';
 import { CEIL, H, LIFT, type Box } from './plan';
 
 // Working lift: a tiny state machine shared by the renderer and the walking physics.
@@ -75,7 +75,7 @@ function indicatorTexture() {
 }
 
 function Landing({ floor }: { floor: number }) {
-  const m = M();
+  const m = R();
   const left = useRef<THREE.Mesh>(null);
   const right = useRef<THREE.Mesh>(null);
   const call = useRef<THREE.Mesh>(null);
@@ -131,7 +131,7 @@ function Landing({ floor }: { floor: number }) {
 }
 
 function Cabin() {
-  const m = M();
+  const m = R();
   const group = useRef<THREE.Group>(null);
   const panel = useRef<THREE.Mesh>(null);
   useEffect(() => register(panel.current, { kind: 'lift-panel', label: 'Ride the lift' }), []);
@@ -156,7 +156,7 @@ function Cabin() {
           <boxGeometry args={[0.04, CEIL - 0.3, d]} />
         </mesh>
       ))}
-      <mesh material={m.ceilingPanel} position={[cx, CEIL - 0.2, cz]}>
+      <mesh material={m.panel} position={[cx, CEIL - 0.2, cz]}>
         <boxGeometry args={[w - 0.2, 0.03, d - 0.2]} />
       </mesh>
       {/* handrail + mirror */}

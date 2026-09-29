@@ -1,6 +1,11 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import type { ClaudeActivity, ClaudeSession } from '../shared/types.ts';
+// internal only — never sent to clients
+export type ClaudeActivity = 'working' | 'idle' | 'standby' | 'streaming' | 'unknown';
+export interface ClaudeSession {
+  kind: 'interactive' | 'background' | 'print' | 'unknown';
+  activitySource: 'session-file' | 'pty-output' | 'none';
+}
 import { CLAUDE_HOME } from './config.ts';
 import { run } from './exec.ts';
 
