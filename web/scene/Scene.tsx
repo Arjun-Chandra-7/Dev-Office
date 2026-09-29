@@ -14,6 +14,8 @@ import { OfficeUnit } from './offices/OfficeUnit';
 import { OverviewRig } from './OverviewRig';
 import { Player } from './player/Player';
 import { usePlan } from './usePlan';
+import { PerfGovernor } from './perf';
+import { TIER } from '../tier';
 
 // Golden-hour sun, matching the sky baked into the Blender kit.
 const SUN_DIR = new THREE.Vector3(-0.55, 0.32, -0.77).normalize();
@@ -23,13 +25,13 @@ const SUN_POS = SUN_DIR.clone().multiplyScalar(100).toArray() as [number, number
  * Frame policy. Static surfaces are baked, so a frame is cheap — but an idle page still shouldn't
  * burn the GPU: render on demand, 30 fps while agents/screens animate, every frame while walking.
  */
-function FrameDriver({ animated }: { animated: boolean }) {
+function FrameDriver({ animated, fps }: { animated: boolean; fps: number }) {
   const invalidate = useThree((s) => s.invalidate);
   useEffect(() => {
     if (!animated) return;
-    const t = setInterval(() => invalidate(), 1000 / 30);
+    const t = setInterval(() => invalidate(), 1000 / fps);
     return () => clearInterval(t);
-  }, [animated, invalidate]);
+  }, [animated, fps, invalidate]);
   useFrame(({ invalidate: inv }) => {
     if (lift.busy()) inv();
   });
@@ -53,6 +55,7 @@ function World() {
   const about = useOffice((s) => s.snapshot?.about);
   const mode = useOffice((s) => s.mode);
   const viewFloor = useOffice((s) => s.viewFloor);
+  const tier = useOffice((s) => s.tier);
   const walking = mode === 'walk';
   const floors: [boolean, boolean] = walking ? [true, true] : [true, viewFloor === 1];
   const anyAgents = useMemo(() => !!projects?.some((p) => p.agents.length > 0), [projects]);
@@ -70,32 +73,40 @@ function World() {
       {walking ? <Player key="player" plan={plan} /> : <OverviewRig plan={plan} />}
       {!walking && <LabelProjector plan={plan} />}
       <CutControl active={!walking} floor={viewFloor} />
-      <FrameDriver animated={anyAgents && !walking} />
+      <FrameDriver animated={anyAgents && !walking} fps={TIER[tier].animFps} />
+      <PerfGovernor />
       <DebugExpose />
     </>
   );
 }
 
 export function Scene() {
-  const quality = useOffice((s) => s.quality);
-  const high = quality === 'high';
-  const dpr = high ? Math.min(typeof window !== 'undefined' ? window.devicePixelRatio : 1, 1.75) : 1;
+  const tier = useOffice((s) => s.tier);
+  const t = TIER[tier];
+  const dpr = Math.min(typeof window !== 'undefined' ? window.devicePixelRatio : 1, t.dpr);
   return (
     <Canvas
+      key={t.antialias ? 'aa' : 'noaa'} // MSAA is fixed per GL context
       frameloop="demand"
       dpr={dpr}
-      gl={{ antialias: high, powerPreference: 'high-performance', stencil: false, toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1.0 }}
+      gl={{ antialias: t.antialias, powerPreference: 'high-performance', stencil: false, toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1.0 }}
       camera={{ fov: 38, near: 0.1, far: 1500, position: [40, 40, 40] }}
     >
-      <Sky distance={900} sunPosition={SUN_POS} turbidity={6} rayleigh={1.8} mieCoefficient={0.005} mieDirectionalG={0.88} />
+      {t.sky ? (
+        <Sky distance={900} sunPosition={SUN_POS} turbidity={6} rayleigh={1.8} mieCoefficient={0.005} mieDirectionalG={0.88} />
+      ) : (
+        <color attach="background" args={['#d9e6ee']} />
+      )}
       {/* image-based light for the few real-time objects (agents, lift, trees); rendered once */}
-      <Environment resolution={128} frames={1} environmentIntensity={0.9}>
-        <Sky sunPosition={SUN_POS} turbidity={6} rayleigh={1.8} mieCoefficient={0.005} mieDirectionalG={0.88} />
-        <Lightformer form="rect" intensity={1.6} color="#fff1dc" position={[0, 8, 0]} rotation-x={Math.PI / 2} scale={[20, 20, 1]} />
-      </Environment>
-      <directionalLight position={SUN_POS} intensity={2.2} color="#ffd9b0" />
-      <hemisphereLight args={['#bcd6ff', '#5a4632', 0.35]} />
-      <fog attach="fog" args={['#e9c9a4', 140, 600]} />
+      {t.env && (
+        <Environment resolution={128} frames={1} environmentIntensity={0.9}>
+          <Sky sunPosition={SUN_POS} turbidity={6} rayleigh={1.8} mieCoefficient={0.005} mieDirectionalG={0.88} />
+          <Lightformer form="rect" intensity={1.6} color="#fff1dc" position={[0, 8, 0]} rotation-x={Math.PI / 2} scale={[20, 20, 1]} />
+        </Environment>
+      )}
+      <directionalLight position={SUN_POS} intensity={t.env ? 2.2 : 2.8} color="#ffd9b0" />
+      <hemisphereLight args={['#bcd6ff', '#5a4632', t.env ? 0.35 : 1.8]} />
+      <fog attach="fog" args={['#e9c9a4', 140, t.city ? 600 : 260]} />
       <Suspense fallback={null}>
         <World />
       </Suspense>

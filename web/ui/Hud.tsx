@@ -1,4 +1,7 @@
-import { useOffice, type Filter } from '../store';
+import { useOffice, type Filter, type Quality } from '../store';
+
+const NEXT_QUALITY: Record<Quality, Quality> = { auto: 'high', high: 'low', low: 'aaloo', aaloo: 'auto' };
+const TIER_LABEL = { high: 'HQ', low: 'LQ', aaloo: '🥔 AALOO' } as const;
 
 const FILTERS: { id: Filter; label: string }[] = [
   { id: 'all', label: 'All' },
@@ -18,8 +21,10 @@ export function Hud() {
   const viewFloor = useOffice((s) => s.viewFloor);
   const setViewFloor = useOffice((s) => s.setViewFloor);
   const quality = useOffice((s) => s.quality);
+  const tier = useOffice((s) => s.tier);
   const setQuality = useOffice((s) => s.setQuality);
   if (!snap) return null;
+  const liveStatus = snap.statusAvailable;
   const walking = mode === 'walk';
   const projects = snap.projects;
   const online = projects.filter((p) => p.status !== 'offline').length;
@@ -41,6 +46,8 @@ export function Hud() {
             <dt>Projects</dt>
             <dd>{projects.length}</dd>
           </div>
+          {liveStatus && (
+            <>
           <div className={online ? 'on' : ''} title="Projects with a live Claude session">
             <dt>Online</dt>
             <dd>{online}</dd>
@@ -49,6 +56,8 @@ export function Hud() {
             <dt>Working</dt>
             <dd>{working}</dd>
           </div>
+            </>
+          )}
         </dl>
         <div className="hud-right">
           {!walking && (
@@ -67,8 +76,13 @@ export function Hud() {
           <button className="icon-btn" title="About me (I)" onClick={() => setAbout(true)}>
             i
           </button>
-          <button className="icon-btn" title={`Graphics: ${quality} — click to switch`} onClick={() => setQuality(quality === 'high' ? 'low' : 'high')}>
-            {quality === 'high' ? 'HQ' : 'LQ'}
+          <button
+            className={`quality-btn${tier === 'aaloo' ? ' aaloo' : ''}`}
+            title={`Graphics: ${quality === 'auto' ? `auto (currently ${tier})` : quality}. Click to cycle Auto → High → Low → Aaloo (potato)`}
+            onClick={() => setQuality(NEXT_QUALITY[quality])}
+          >
+            {quality === 'auto' ? <span className="muted">AUTO·</span> : null}
+            {TIER_LABEL[tier]}
           </button>
           <button className="search-btn" onClick={() => setPalette(true)}>
             <span>Projects</span>
@@ -77,7 +91,7 @@ export function Hud() {
         </div>
       </header>
 
-      {!walking && (
+      {!walking && liveStatus && (
         <nav className="filters" aria-label="Filter offices">
           {FILTERS.map((f) => (
             <button key={f.id} className={filter === f.id ? 'active' : ''} onClick={() => setFilter(f.id)}>
@@ -89,7 +103,9 @@ export function Hud() {
       )}
 
       <footer className="statusbar">
-        <span className={`conn ${connected ? 'ok' : 'bad'}`}>{connected ? 'live' : 'reconnecting'}</span>
+        <span className={`conn ${connected ? 'ok' : 'bad'}`}>{!liveStatus ? 'portfolio' : connected ? 'live' : 'reconnecting'}</span>
+        {liveStatus && (
+          <>
         <span className="legend">
           <i className="lg s-working" /> working in background
         </span>
@@ -99,6 +115,8 @@ export function Hud() {
         <span className="legend">
           <i className="lg s-none" /> session offline
         </span>
+          </>
+        )}
         <span className="spacer" />
         <span className="hint">
           {walking

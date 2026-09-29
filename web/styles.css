@@ -446,3 +446,9 @@ button.hud-brand:hover { border-color: var(--line-strong); }
   .about-body h1 { font-size: 30px; }
   .panel { width: auto; }
 }
+.quality-btn {
+  height: 34px; padding: 0 10px; border-radius: 8px; cursor: pointer; font: 700 11px var(--mono); letter-spacing: 0.06em;
+  background: var(--panel); border: 1px solid var(--line); color: var(--text); backdrop-filter: blur(10px);
+}
+.quality-btn:hover { border-color: var(--line-strong); }
+.quality-btn.aaloo { color: #fde68a; border-color: rgba(253, 230, 138, 0.35); }

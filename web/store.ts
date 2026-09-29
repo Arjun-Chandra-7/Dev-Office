@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import type { PortfolioProject, PortfolioSnapshot, ProjectStatus, StateMessage } from '../shared/types';
+import { guessTier, type Tier } from './tier';
 
 export type Filter = 'all' | 'online' | 'working';
 
@@ -23,7 +24,8 @@ export function matchesFilter(p: PortfolioProject, f: Filter) {
 }
 
 export type Mode = 'overview' | 'walk';
-export type Quality = 'high' | 'low';
+/** 'auto' picks (and adapts) a tier; the others pin one. */
+export type Quality = 'auto' | Tier;
 
 interface Persisted {
   selectedId: string | null;
@@ -33,7 +35,7 @@ interface Persisted {
   quality: Quality;
 }
 
-const STORAGE_KEY = 'dev-office:ui:v3';
+const STORAGE_KEY = 'dev-office:ui:v4';
 function loadPersisted(): Persisted {
   try {
     const v = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? 'null');
@@ -43,12 +45,12 @@ function loadPersisted(): Persisted {
         filter: ['all', 'online', 'working'].includes(v.filter) ? v.filter : 'all',
         camera: v.camera ?? null,
         viewFloor: v.viewFloor === 1 ? 1 : 0,
-        quality: v.quality === 'low' ? 'low' : 'high',
+        quality: ['auto', 'high', 'low', 'aaloo'].includes(v.quality) ? v.quality : 'auto',
       };
   } catch {
     /* storage unavailable */
   }
-  return { selectedId: null, filter: 'all', camera: null, viewFloor: 0, quality: 'high' };
+  return { selectedId: null, filter: 'all', camera: null, viewFloor: 0, quality: 'auto' };
 }
 export function savePersisted(patch: Partial<Persisted>) {
   try {
@@ -75,6 +77,8 @@ interface UIState {
   mode: Mode;
   viewFloor: 0 | 1;
   quality: Quality;
+  /** effective graphics tier (= quality unless auto) */
+  tier: Tier;
   /** first-person: what the crosshair is on */
   hint: string | null;
   pointerLocked: boolean;
@@ -109,6 +113,7 @@ export const useOffice = create<UIState>((set, get) => ({
   mode: 'overview',
   viewFloor: initialPersisted.viewFloor,
   quality: initialPersisted.quality,
+  tier: initialPersisted.quality === 'auto' ? guessTier() : initialPersisted.quality,
   hint: null,
   pointerLocked: false,
   ready: false,
@@ -119,7 +124,7 @@ export const useOffice = create<UIState>((set, get) => ({
     savePersisted({ viewFloor });
   },
   setQuality: (quality) => {
-    set({ quality });
+    set({ quality, tier: quality === 'auto' ? guessTier() : quality });
     savePersisted({ quality });
   },
   select: (id, opts) => {
@@ -146,33 +151,51 @@ export function useProject(id: string | null) {
 
 // ---- live state ------------------------------------------------------------------------------
 
+/** Static hosting (e.g. Vercel): no backend, content comes from a snapshot file. */
+export const STATIC = import.meta.env.VITE_STATIC === '1';
+/** Optional live status source for static hosting, e.g. wss://my-tunnel.example/ws/state */
+const LIVE_URL: string | undefined = import.meta.env.VITE_LIVE_URL;
+
+function applySnapshot(data: PortfolioSnapshot) {
+  const s = useOffice.getState();
+  // structural sharing: unchanged projects keep their object identity (memoised offices skip renders)
+  const prev = new Map((s.snapshot?.projects ?? []).map((p) => [p.id, p]));
+  data.projects = data.projects.map((p) => {
+    const old = prev.get(p.id);
+    return old && JSON.stringify(old) === JSON.stringify(p) ? old : p;
+  });
+  const patch: Partial<UIState> = { snapshot: data };
+  if (s.selectedId && !data.projects.some((p) => p.id === s.selectedId)) {
+    patch.selectedId = null;
+    patch.panelOpen = false;
+  }
+  useOffice.setState(patch);
+}
+
 let retry = 0;
 export function connectState() {
-  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
-  const ws = new WebSocket(`${proto}://${location.host}/ws/state`);
+  if (STATIC) {
+    fetch('/portfolio.json')
+      .then((r) => r.json())
+      .then((data: PortfolioSnapshot) => {
+        if (!useOffice.getState().snapshot) applySnapshot(data);
+        useOffice.setState({ connected: true });
+      })
+      .catch(() => useOffice.setState({ connected: false }));
+    if (!LIVE_URL) return;
+  }
+  const url = STATIC ? LIVE_URL! : `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws/state`;
+  const ws = new WebSocket(url);
   ws.onopen = () => {
     retry = 0;
     useOffice.setState({ connected: true });
   };
   ws.onmessage = (ev) => {
     const msg = JSON.parse(ev.data) as StateMessage;
-    if (msg.type !== 'snapshot') return;
-    const s = useOffice.getState();
-    // structural sharing: unchanged projects keep their object identity (memoised offices skip renders)
-    const prev = new Map((s.snapshot?.projects ?? []).map((p) => [p.id, p]));
-    msg.data.projects = msg.data.projects.map((p) => {
-      const old = prev.get(p.id);
-      return old && JSON.stringify(old) === JSON.stringify(p) ? old : p;
-    });
-    const patch: Partial<UIState> = { snapshot: msg.data };
-    if (s.selectedId && !msg.data.projects.some((p) => p.id === s.selectedId)) {
-      patch.selectedId = null;
-      patch.panelOpen = false;
-    }
-    useOffice.setState(patch);
+    if (msg.type === 'snapshot') applySnapshot(msg.data);
   };
   ws.onclose = () => {
-    useOffice.setState({ connected: false });
+    if (!STATIC) useOffice.setState({ connected: false });
     setTimeout(connectState, Math.min(8000, 500 * 2 ** retry++));
   };
 }

@@ -1,6 +1,8 @@
 import { useEffect, useMemo } from 'react';
 import * as THREE from 'three';
 import { R } from '../runtimeMats';
+import { useOffice } from '../../store';
+import { TIER } from '../../tier';
 import { cutPlane } from './BakedBuilding';
 import { CEIL, CORR, H, HZ, type BuildingPlan } from './plan';
 
@@ -148,14 +150,15 @@ function City({ center }: { center: number }) {
 
 export function Exterior({ plan, roof }: { plan: BuildingPlan; roof: boolean }) {
   const mats = useSiteMaterials();
+  const tier = TIER[useOffice((s) => s.tier)];
   const L = plan.length;
   const trees = useMemo(() => {
     const r = rng(9);
     const out: [number, number, number][] = [];
     for (let x = -4; x < L + 8; x += 6.5) out.push([x + r(), HZ + 5.5 + r(), 0.8 + r() * 0.5], [x + r(), -HZ - 5.5 - r(), 0.8 + r() * 0.5]);
     for (let z = -HZ; z <= HZ; z += 7) out.push([L + 7 + r(), z, 0.9 + r() * 0.4]);
-    return out;
-  }, [L]);
+    return tier.trees < 1 ? out.filter((_, i) => i % 2 === 0) : out;
+  }, [L, tier.trees]);
 
   return (
     <group>
@@ -169,7 +172,7 @@ export function Exterior({ plan, roof }: { plan: BuildingPlan; roof: boolean }) 
         <planeGeometry args={[9, 500]} />
       </mesh>
       <Trees spots={trees} mats={mats} />
-      <City center={L / 2} />
+      {tier.city && <City center={L / 2} />}
       {/* east end closure: cladding over the office bays + a window at the corridor end */}
       {[0, 1].map((f) => (
         <group key={f}>

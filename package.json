@@ -13,7 +13,8 @@
     "test": "tsx --test server/*.test.ts",
     "check:security": "node scripts/security-check.mjs",
     "bake": "scripts/bake-kit.sh",
-    "check:live": "node scripts/live-probe.mjs"
+    "check:live": "node scripts/live-probe.mjs",
+    "build:static": "tsx scripts/export-static.ts && VITE_STATIC=1 vite build"
   },
   "devDependencies": {
     "@gltf-transform/cli": "^4.5.1",

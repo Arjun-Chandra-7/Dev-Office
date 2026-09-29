@@ -30,7 +30,7 @@ function fit(ctx: CanvasRenderingContext2D, text: string, max: number) {
 }
 
 /** Name + status only. While a session is working, a calm waveform animates along the bottom. */
-export function drawScreen(h: ScreenHandle, p: PortfolioProject, tick: number) {
+export function drawScreen(h: ScreenHandle, p: PortfolioProject, tick: number, live = true) {
   const g = h.canvas.getContext('2d')!;
   const st = deskStatus(p);
   const accent = st === 'working' ? '#67e8f9' : st === 'live' ? '#86efac' : '#64748b';
@@ -50,7 +50,7 @@ export function drawScreen(h: ScreenHandle, p: PortfolioProject, tick: number) {
   g.beginPath();
   g.arc(38, 160, 7, 0, Math.PI * 2);
   g.fill();
-  g.fillText(STATUS_LABEL[p.status].toUpperCase(), 56, 168);
+  g.fillText(live ? STATUS_LABEL[p.status].toUpperCase() : 'PORTFOLIO PROJECT', 56, 168);
 
   if (st === 'working') {
     g.strokeStyle = accent;

@@ -21,7 +21,7 @@ const SEATS: { pos: [number, number, number]; rotY: number; pose: 'desk' | 'visi
   { pos: [2.0, 0, -0.9], rotY: Math.PI / 2, pose: 'visitor' },
 ];
 
-function signTexture(p: PortfolioProject) {
+function signTexture(p: PortfolioProject, live: boolean) {
   const c = document.createElement('canvas');
   c.width = 512;
   c.height = 160;
@@ -40,7 +40,8 @@ function signTexture(p: PortfolioProject) {
   g.fillText(name, 36, 62);
   g.font = '500 26px "JetBrains Mono", monospace';
   g.fillStyle = st === 'none' ? '#7b8893' : st === 'working' ? '#67e8f9' : '#86efac';
-  g.fillText(`● ${STATUS_LABEL[p.status]}`, 36, 118);
+  if (!live) g.fillStyle = '#67e8f9';
+  g.fillText(live ? `● ${STATUS_LABEL[p.status]}` : 'step inside · press E at the laptop', 36, 118);
   const t = new THREE.CanvasTexture(c);
   t.colorSpace = THREE.SRGBColorSpace;
   t.anisotropy = 8;
@@ -56,6 +57,7 @@ export const OfficeUnit = memo(function OfficeUnit({ project, spot, visible }: {
   const hovered = useOffice((s) => s.hoveredId === project.id);
   const filter = useOffice((s) => s.filter);
   const hover = useOffice((s) => s.hover);
+  const liveStatus = useOffice((s) => s.snapshot?.statusAvailable ?? false);
   const status = deskStatus(project);
   const dimmed = !matchesFilter(project, filter);
 
@@ -63,22 +65,22 @@ export const OfficeUnit = memo(function OfficeUnit({ project, spot, visible }: {
   const screenMat = useRef<THREE.MeshBasicMaterial>(null);
   const tvMat = useRef<THREE.MeshBasicMaterial>(null);
   const laptopHit = useRef<THREE.Mesh>(null);
-  const sign = useMemo(() => signTexture(project), [project]);
+  const sign = useMemo(() => signTexture(project, liveStatus), [project, liveStatus]);
   useEffect(() => () => screen.texture.dispose(), [screen]);
   useEffect(() => () => sign.dispose(), [sign]);
 
   // screen: redrawn on change; animated (2 fps) only while a session is working and visible
   useEffect(() => {
     let tick = 0;
-    drawScreen(screen, project, tick);
+    drawScreen(screen, project, tick, liveStatus);
     invalidate();
     if (status !== 'working' || !visible) return;
     const t = setInterval(() => {
-      drawScreen(screen, project, ++tick);
+      drawScreen(screen, project, ++tick, liveStatus);
       invalidate();
     }, 500);
     return () => clearInterval(t);
-  }, [project, status, screen, invalidate, visible]);
+  }, [project, status, screen, invalidate, visible, liveStatus]);
 
   useEffect(() => {
     const b = dimmed ? 0.3 : status === 'none' ? 0.6 : 1;

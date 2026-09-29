@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { useOffice } from '../../store';
 import { R } from '../runtimeMats';
+import { TIER } from '../../tier';
 import { CORE, H, OFF_W, type BuildingPlan } from './plan';
 
 // The building is a set of Blender-baked modules (see blender/build_kit.py): every static surface
@@ -52,7 +53,8 @@ function toFloat(g: THREE.BufferGeometry) {
 /** Load one module: baked meshes (world-space geometry) + merged glass panes. */
 function useModule(name: ModuleName): KitModule {
   const gltf = useGLTF(url(`${name}.glb`), false, true);
-  const [arch, props] = useTexture([url(`${name}_arch.webp`), url(`${name}_props.webp`)].slice(0, name === 'corridor' ? 1 : 2));
+  const sfx = TIER[useOffice((s) => s.tier)].tex; // 4096 / 2048 / 1024 atlases
+  const [arch, props] = useTexture([url(`${name}_arch${sfx}.webp`), url(`${name}_props${sfx}.webp`)].slice(0, name === 'corridor' ? 1 : 2));
   return useMemo(() => {
     gltf.scene.updateMatrixWorld(true);
     const parts: KitModule['parts'] = [];

@@ -12,6 +12,7 @@ export function ProjectCard() {
   const closePanel = useOffice((s) => s.closePanel);
   const overview = useOffice((s) => s.overview);
   const mode = useOffice((s) => s.mode);
+  const liveStatus = useOffice((s) => s.snapshot?.statusAvailable ?? false);
   if (!p || !panelOpen) return null;
   const st = deskStatus(p);
 
@@ -19,10 +20,12 @@ export function ProjectCard() {
     <aside className="panel" aria-label={`${p.title}`}>
       <div className="panel-head">
         <div>
-          <div className={`status-pill s-${st}`}>
-            <span className="dot" />
-            {STATUS_LABEL[p.status].toUpperCase()}
-          </div>
+          {liveStatus && (
+            <div className={`status-pill s-${st}`}>
+              <span className="dot" />
+              {STATUS_LABEL[p.status].toUpperCase()}
+            </div>
+          )}
           <h1>{p.title}</h1>
         </div>
         <div className="panel-head-actions">
@@ -74,7 +77,9 @@ export function ProjectCard() {
         )}
 
         <section className="muted small status-note">
-          {p.status === 'working'
+          {!liveStatus
+            ? 'Live session status shows here when my workstation is online.'
+            : p.status === 'working'
             ? 'A Claude session is actively working on this project right now.'
             : p.status === 'online'
               ? `${p.agents.length} Claude session${p.agents.length > 1 ? 's are' : ' is'} open on this project.`
