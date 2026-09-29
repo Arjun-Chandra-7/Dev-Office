@@ -1,7 +1,8 @@
 import { useFrame } from '@react-three/fiber';
 import { memo, useMemo, useRef } from 'react';
 import * as THREE from 'three';
-import type { ClaudeActivity } from '../../../shared/types';
+import type { AgentActivity } from '../../../shared/types';
+import { R } from '../runtimeMats';
 
 // A stylised seated person. One agent = one real Claude session; its animation reflects the
 // observed activity (typing only when the session is working / streaming output).
@@ -54,7 +55,7 @@ export const Agent = memo(function Agent({
   rotY,
 }: {
   seed: string;
-  activity: ClaudeActivity;
+  activity: AgentActivity;
   pose: AgentPose;
   position: [number, number, number];
   rotY: number;
@@ -71,7 +72,7 @@ export const Agent = memo(function Agent({
     }),
     [h],
   );
-  const typing = pose === 'desk' && (activity === 'working' || activity === 'streaming');
+  const typing = pose === 'desk' && activity === 'working';
   const torso = useRef<THREE.Group>(null);
   const head = useRef<THREE.Group>(null);
   const armL = useRef<THREE.Group>(null);
@@ -107,10 +108,10 @@ export const Agent = memo(function Agent({
 
   // arm targets in shoulder space: hands on the keyboard while typing / attending the desk,
   // resting on the lap otherwise
-  const reach = pose === 'desk' && activity !== 'idle' && activity !== 'unknown';
+  const reach = pose === 'desk' && activity === 'working';
   const elbow = (sd: number): [number, number, number] => (reach ? [sd * 0.02, -0.21, -0.21] : [sd * 0.02, -0.27, -0.11]);
   const hand = (sd: number): [number, number, number] => (reach ? [sd * -0.08, -0.19, -0.47] : [sd * -0.06, -0.39, -0.33]);
-  const haloColor = activity === 'working' || activity === 'streaming' ? '#67e8f9' : activity === 'idle' ? '#e0f2fe' : '#fde68a';
+  const haloColor = activity === 'working' ? '#67e8f9' : '#86efac';
 
   const thighZ = pose === 'visitor' ? -0.32 : -0.4;
   const shinZ = pose === 'visitor' ? -0.36 : -0.46;
@@ -118,6 +119,10 @@ export const Agent = memo(function Agent({
 
   return (
     <group position={position} rotation={[0, rotY, 0]}>
+      {/* soft contact shadow (no real-time shadow maps any more) */}
+      <mesh material={R().blob} position={[0, 0.012, -0.2]} rotation={[-Math.PI / 2, 0, 0]} scale={[0.9, 1.1, 1]}>
+        <planeGeometry />
+      </mesh>
       {/* legs (seated) */}
       {[-1, 1].map((s) => (
         <group key={s}>

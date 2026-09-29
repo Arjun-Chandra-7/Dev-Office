@@ -3,3 +3,5 @@ dist/
 .data/
 *.log
 .claude/worktrees/
+__pycache__/
+*.pyc

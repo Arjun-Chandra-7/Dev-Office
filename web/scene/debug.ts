@@ -11,8 +11,9 @@ import { useEffect } from 'react';
 export function DebugExpose() {
   const gl = useThree((s) => s.gl);
   const scene = useThree((s) => s.scene);
+  const camera = useThree((s) => s.camera);
   useEffect(() => {
-    if (import.meta.env.DEV) (window as any).__three = { gl, scene };
-  }, [gl, scene]);
+    if (import.meta.env.DEV) (window as any).__three = { gl, scene, camera };
+  }, [gl, scene, camera]);
   return null;
 }

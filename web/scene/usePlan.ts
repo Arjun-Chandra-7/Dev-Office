@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import type { Project } from '../../shared/types';
+import type { PortfolioProject as Project } from '../../shared/types';
 import { useOffice } from '../store';
 import { makeBuildingPlan, type BuildingPlan } from './building/plan';
 
