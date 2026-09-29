@@ -1,222 +1,115 @@
 import { Environment, Lightformer, Sky } from '@react-three/drei';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { Bloom, BrightnessContrast, EffectComposer, HueSaturation, N8AO, SMAA, ToneMapping, Vignette } from '@react-three/postprocessing';
-import { ToneMappingMode } from 'postprocessing';
-import { useEffect, useMemo, useRef } from 'react';
+import { Suspense, useEffect, useMemo } from 'react';
 import * as THREE from 'three';
 import { useOffice } from '../store';
-import { Building } from './building/Building';
-import { Core } from './building/Core';
-import { InstancedKit } from './building/Furniture';
-import { officeKit } from './building/kits';
+import { AboutWall } from './building/AboutWall';
+import { BakedBuilding, cutPlane } from './building/BakedBuilding';
+import { Exterior } from './building/Exterior';
 import { lift, Lift } from './building/Lift';
-import { H, HZ, type BuildingPlan } from './building/plan';
+import { CEIL, H } from './building/plan';
+import { DebugExpose } from './debug';
 import { LabelProjector } from './labels';
 import { OfficeUnit } from './offices/OfficeUnit';
 import { OverviewRig } from './OverviewRig';
 import { Player } from './player/Player';
 import { usePlan } from './usePlan';
-import { dbgOff, DebugExpose } from './debug';
+import { PerfGovernor } from './perf';
+import { TIER } from '../tier';
 
-// Golden-hour sun low in the south-west, so light rakes through the glass façades.
-const SUN_DIR = new THREE.Vector3(-0.55, 0.3, -0.78).normalize();
-
-function Sun({ plan, quality }: { plan: BuildingPlan; quality: 'high' | 'low' }) {
-  const light = useRef<THREE.DirectionalLight>(null);
-  const target = useMemo(() => new THREE.Object3D(), []);
-  useEffect(() => {
-    const l = light.current;
-    if (!l) return;
-    target.position.set(plan.length / 2, 0, 0);
-    l.target = target;
-    l.position.copy(target.position).addScaledVector(SUN_DIR, 60);
-    const cam = l.shadow.camera as THREE.OrthographicCamera;
-    const s = Math.max(plan.length, 2 * HZ) * 0.62 + 4;
-    cam.left = -s;
-    cam.right = s;
-    cam.top = s;
-    cam.bottom = -s;
-    cam.near = 1;
-    cam.far = 140;
-    cam.updateProjectionMatrix();
-    l.shadow.needsUpdate = true;
-  }, [plan, target]);
-  const size = quality === 'high' ? 2048 : 1024;
-  return (
-    <>
-      <primitive object={target} />
-      <directionalLight
-        key={size}
-        ref={light}
-        color="#ffd2a8"
-        intensity={5.4}
-        castShadow
-        shadow-mapSize={[size, size]}
-        shadow-bias={-0.0003}
-        shadow-normalBias={0.035}
-      />
-    </>
-  );
-}
-
-/** Interior fill: warm architectural downlights. */
-function InteriorLights({ plan }: { plan: BuildingPlan }) {
-  const xs = [5, plan.length * 0.45, plan.length * 0.85];
-  return (
-    <>
-      {[0, 1].flatMap((f) =>
-        xs.map((x, i) => (
-          <pointLight
-            key={`${f}${i}`}
-            position={[x, f * H + 2.8, 0]}
-            intensity={14}
-            distance={16}
-            decay={1.8}
-            color="#ffe2ba"
-          />
-        )),
-      )}
-    </>
-  );
-}
+// Golden-hour sun, matching the sky baked into the Blender kit.
+const SUN_DIR = new THREE.Vector3(-0.55, 0.32, -0.77).normalize();
+const SUN_POS = SUN_DIR.clone().multiplyScalar(100).toArray() as [number, number, number];
 
 /**
- * Shadow update policy: keep static shadows cached; refresh rapidly only when the lift moves,
- * and gently (1.5s) when idle, eliminating the 5Hz frame stutter.
+ * Frame policy. Static surfaces are baked, so a frame is cheap — but an idle page still shouldn't
+ * burn the GPU: render on demand, 30 fps while agents/screens animate, every frame while walking.
  */
-function ShadowThrottle() {
-  const gl = useThree((s) => s.gl);
-  const last = useRef(0);
-  useEffect(() => {
-    gl.shadowMap.autoUpdate = false;
-    gl.shadowMap.needsUpdate = true;
-    return () => {
-      gl.shadowMap.autoUpdate = true;
-    };
-  }, [gl]);
-  useFrame(({ clock }) => {
-    const moving = lift.busy();
-    const interval = moving ? 0.08 : 1.5;
-    if (clock.elapsedTime - last.current > interval) {
-      last.current = clock.elapsedTime;
-      gl.shadowMap.needsUpdate = true;
-    }
-  });
-  return null;
-}
-
-/** Frame loop policy: sleep when nothing moves; 30 fps while agents/lift animate; walking self-drives. */
-function FrameDriver({ animated }: { animated: boolean }) {
+function FrameDriver({ animated, fps }: { animated: boolean; fps: number }) {
   const invalidate = useThree((s) => s.invalidate);
   useEffect(() => {
     if (!animated) return;
-    const t = setInterval(() => invalidate(), 1000 / 30);
+    const t = setInterval(() => invalidate(), 1000 / fps);
     return () => clearInterval(t);
-  }, [animated, invalidate]);
+  }, [animated, fps, invalidate]);
   useFrame(({ invalidate: inv }) => {
     if (lift.busy()) inv();
   });
   return null;
 }
 
+/** Dollhouse cut: in the overview, slice away the ceiling of the floor being viewed. */
+function CutControl({ active, floor }: { active: boolean; floor: number }) {
+  const { gl, invalidate } = useThree();
+  useEffect(() => {
+    gl.localClippingEnabled = true;
+    cutPlane.constant = active ? floor * H + CEIL - 0.08 : 1e6;
+    invalidate();
+  }, [active, floor, gl, invalidate]);
+  return null;
+}
+
 function World() {
   const plan = usePlan();
   const projects = useOffice((s) => s.snapshot?.projects);
+  const about = useOffice((s) => s.snapshot?.about);
   const mode = useOffice((s) => s.mode);
   const viewFloor = useOffice((s) => s.viewFloor);
-  const quality = useOffice((s) => s.quality);
+  const tier = useOffice((s) => s.tier);
   const walking = mode === 'walk';
   const floors: [boolean, boolean] = walking ? [true, true] : [true, viewFloor === 1];
-  const ceilings: [boolean, boolean] = walking ? [true, true] : [viewFloor === 1, false];
-  const kit = useMemo(officeKit, []);
-  const placements = useMemo(
-    () => [0, 1].map((f) => plan.offices.filter((o) => o.floor === f).map((o) => ({ x: o.x, y: o.y, z: o.z, rotY: o.rotY }))),
-    [plan],
-  );
-  const anyAgents = !!projects?.some((p) => p.claude.live > 0);
+  const anyAgents = useMemo(() => !!projects?.some((p) => p.agents.length > 0), [projects]);
 
   return (
     <>
-      <Building plan={plan} visibleFloors={floors} ceilings={ceilings} />
-      <Core plan={plan} floors={floors} />
+      <BakedBuilding plan={plan} floors={floors} />
+      <Exterior plan={plan} roof={walking} />
       <Lift floors={floors} />
-      {!dbgOff('kits') && (
-        <>
-          <group visible={floors[0]}>
-            <InstancedKit parts={kit} at={placements[0]} />
-          </group>
-          <group visible={floors[1]}>
-            <InstancedKit parts={kit} at={placements[1]} />
-          </group>
-        </>
-      )}
+      {about && <AboutWall about={about} />}
       {projects?.map((p) => {
         const spot = plan.byId.get(p.id);
         return spot ? <OfficeUnit key={p.id} project={p} spot={spot} visible={floors[spot.floor]} /> : null;
       })}
-      <Sun plan={plan} quality={quality} />
-      <hemisphereLight args={['#9cc4ff', '#4a3526', 0.14]} />
-      {!dbgOff('lights') && <InteriorLights plan={plan} />}
       {walking ? <Player key="player" plan={plan} /> : <OverviewRig plan={plan} />}
       {!walking && <LabelProjector plan={plan} />}
-      <FrameDriver animated={anyAgents && !walking} />
+      <CutControl active={!walking} floor={viewFloor} />
+      <FrameDriver animated={anyAgents && !walking} fps={TIER[tier].animFps} />
+      <PerfGovernor />
       <DebugExpose />
-      <ShadowThrottle />
     </>
   );
 }
 
 export function Scene() {
-  const quality = useOffice((s) => s.quality);
-  const high = quality === 'high';
+  const tier = useOffice((s) => s.tier);
+  const t = TIER[tier];
+  const dpr = Math.min(typeof window !== 'undefined' ? window.devicePixelRatio : 1, t.dpr);
   return (
     <Canvas
-      shadows={!dbgOff('shadow')}
+      key={t.antialias ? 'aa' : 'noaa'} // MSAA is fixed per GL context
       frameloop="demand"
-      dpr={high ? Math.min(typeof window !== 'undefined' ? window.devicePixelRatio : 1, 1.35) : 1}
-      gl={{
-        antialias: false,
-        powerPreference: 'high-performance',
-        stencil: false,
-        toneMapping: THREE.ACESFilmicToneMapping,
-        toneMappingExposure: 1.06,
-      }}
+      dpr={dpr}
+      gl={{ antialias: t.antialias, powerPreference: 'high-performance', stencil: false, toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1.0 }}
       camera={{ fov: 38, near: 0.1, far: 1500, position: [40, 40, 40] }}
     >
-      <Sky distance={900} sunPosition={SUN_DIR.clone().multiplyScalar(100).toArray()} turbidity={6.5} rayleigh={2.0} mieCoefficient={0.005} mieDirectionalG={0.88} />
-      {!dbgOff('env') && (
-        <Environment resolution={256} frames={1} environmentIntensity={0.5}>
-          <Sky sunPosition={SUN_DIR.clone().multiplyScalar(100).toArray()} turbidity={6.5} rayleigh={2.0} mieCoefficient={0.005} mieDirectionalG={0.88} />
-          <Lightformer form="rect" intensity={2.2} color="#fff1dc" position={[0, 8, 0]} rotation-x={Math.PI / 2} scale={[20, 20, 1]} />
-          <Lightformer form="rect" intensity={1.1} color="#ffa868" position={[-10, 2, -10]} scale={[10, 4, 1]} />
+      {t.sky ? (
+        <Sky distance={900} sunPosition={SUN_POS} turbidity={6} rayleigh={1.8} mieCoefficient={0.005} mieDirectionalG={0.88} />
+      ) : (
+        <color attach="background" args={['#d9e6ee']} />
+      )}
+      {/* image-based light for the few real-time objects (agents, lift, trees); rendered once */}
+      {t.env && (
+        <Environment resolution={128} frames={1} environmentIntensity={0.9}>
+          <Sky sunPosition={SUN_POS} turbidity={6} rayleigh={1.8} mieCoefficient={0.005} mieDirectionalG={0.88} />
+          <Lightformer form="rect" intensity={1.6} color="#fff1dc" position={[0, 8, 0]} rotation-x={Math.PI / 2} scale={[20, 20, 1]} />
         </Environment>
       )}
-      <fog attach="fog" args={['#e8be96', 110, 500]} />
-      <World />
-      {!dbgOff('post') && (
-        <EffectComposer multisampling={0} enableNormalPass={false}>
-          {high && (
-            <N8AO
-              aoRadius={1.1}
-              distanceFalloff={0.7}
-              intensity={2.2}
-              halfRes
-              quality="low"
-            />
-          )}
-          <Bloom
-            intensity={0.42}
-            luminanceThreshold={1.1}
-            luminanceSmoothing={0.35}
-            mipmapBlur
-          />
-          <ToneMapping mode={ToneMappingMode.ACES_FILMIC} />
-          <BrightnessContrast contrast={0.08} brightness={0.02} />
-          <HueSaturation saturation={0.08} />
-          {high && <SMAA />}
-          <Vignette offset={0.32} darkness={0.4} />
-        </EffectComposer>
-      )}
+      <directionalLight position={SUN_POS} intensity={t.env ? 2.2 : 2.8} color="#ffd9b0" />
+      <hemisphereLight args={['#bcd6ff', '#5a4632', t.env ? 0.35 : 1.8]} />
+      <fog attach="fog" args={['#e9c9a4', 140, t.city ? 600 : 260]} />
+      <Suspense fallback={null}>
+        <World />
+      </Suspense>
     </Canvas>
   );
 }
