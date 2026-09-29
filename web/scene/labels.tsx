@@ -1,8 +1,8 @@
 import { useFrame, useThree } from '@react-three/fiber';
 import { memo, useEffect, useLayoutEffect, useRef } from 'react';
 import * as THREE from 'three';
-import type { Project } from '../../shared/types';
-import { deskStatus, gitDirtyCount, isRecent, matchesFilter, useOffice } from '../store';
+import type { PortfolioProject as Project } from '../../shared/types';
+import { deskStatus, matchesFilter, useOffice } from '../store';
 import { OFF_W, type BuildingPlan } from './building/plan';
 
 // One DOM layer for all desk labels, positioned from the render loop. (A React root per label
@@ -64,19 +64,12 @@ const Label = memo(function Label({ p, selected, hovered, dimmed }: { p: Project
     };
   }, [p.id]);
   const status = deskStatus(p);
-  const dirty = gitDirtyCount(p);
   return (
     <div ref={ref} className="desk-anchor" style={{ visibility: 'hidden' }}>
       <div className={`desk-label s-${status}${selected ? ' is-selected' : ''}${hovered ? ' is-hover' : ''}${dimmed ? ' is-dim' : ''}`}>
         <span className="dot" />
-        <span className="name">{p.name}</span>
-        {p.claude.live > 1 && <span className="count">×{p.claude.live}</span>}
-        {dirty > 0 && (
-          <span className="git" title="uncommitted changes">
-            ±{dirty}
-          </span>
-        )}
-        {isRecent(p) && status === 'none' && <span className="recent" title="Claude or git activity in last 24h" />}
+        <span className="name">{p.title}</span>
+        {p.agents.length > 1 && <span className="count">×{p.agents.length}</span>}
       </div>
     </div>
   );
