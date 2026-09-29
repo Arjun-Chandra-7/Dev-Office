@@ -29,6 +29,6 @@
 * **Lighting is baked.** Lighting is fixed at golden hour, and moving furniture would require a re-bake. Only
   agents, screens and the lift are real-time.
 * **Stylised people.** Agents are stylised procedural figures, not scanned humans.
-* **Content gaps.** The CrickLytics live link you sent duplicated Viralyst's, so it is left empty. Study-Loop
-  has no curated text yet. Byte Labs gets an office once a matching folder (`Byte-Lab`, `Byte-Labs` or
+* **Content gaps.** Study-Loop is marked "still in progress". Byte Labs
+  gets an office once a matching folder (`Byte-Lab`, `Byte-Labs` or
   `Byte-Eats`) exists.

@@ -32,7 +32,7 @@
       "title": "CrickLytics",
       "summary": "**CrickLytics** is an AI-powered cricket biomechanics and performance analytics system that turns ordinary single-camera footage into detailed player insights. It uses 3D pose estimation, motion tracking, phase segmentation, and machine learning to analyze batting technique, classify shots, and reconstruct movement through a 3D digital twin. The system combines this analysis with real-time video pairing and an AI mentor to provide personalized, actionable coaching from footage that would normally require expensive multi-camera setups.",
       "github": ["https://github.com/Arjun-Chandra-7/CrickLytics"],
-      "link": null
+      "link": "https://genia-diversifiable-millie.ngrok-free.dev"
     },
     "Pen-Fight": {
       "title": "Pen Fight",
@@ -69,6 +69,13 @@
       "title": "Automated LinkedIn Bot",
       "summary": "**Automated LinkedIn Bot** is an autonomous content automation system that manages my LinkedIn presence with minimal manual intervention. It generates or processes posts, handles scheduling and publishing, and maintains a consistent posting workflow through automation. The project demonstrates how agentic workflows can turn a repetitive social-media task into a reliable end-to-end system, from content preparation to automated publishing.",
       "github": ["https://github.com/Arjun-Chandra-7/Linkdin-Bot"],
+      "link": null
+    },
+    "Study-Loop": {
+      "aliases": ["StudyLoop"],
+      "title": "StudyLoop",
+      "summary": "**StudyLoop** is still in progress — check back soon.",
+      "github": [],
       "link": null
     },
     "Portfolio": {

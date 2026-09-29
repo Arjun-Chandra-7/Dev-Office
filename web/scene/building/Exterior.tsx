@@ -135,7 +135,7 @@ function City({ center }: { center: number }) {
     const m = new THREE.Matrix4();
     for (let i = 0; i < 150; i++) {
       const a = r() * Math.PI * 2;
-      const d = 80 + r() * 170;
+      const d = 140 + r() * 200;
       im.setMatrixAt(i, m.compose(new THREE.Vector3(center + Math.cos(a) * d, 0, Math.sin(a) * d), new THREE.Quaternion(), new THREE.Vector3(10 + r() * 22, 12 + r() * r() * 120, 10 + r() * 22)));
     }
     im.instanceMatrix.needsUpdate = true;
