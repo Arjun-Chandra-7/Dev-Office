@@ -13,7 +13,7 @@ const PORT = process.env.DEV_OFFICE_PORT ?? 4317;
 const ws = new WebSocket(`ws://localhost:${PORT}/ws/state`, { headers: { Origin: `http://localhost:${PORT}` } });
 ws.on('message', (m) => {
   const msg = JSON.parse(String(m));
-  names = msg.data.projects.map((p) => `${p.name}#${p.id}#slot${p.slot}#${p.description.source}`);
+  names = msg.data.projects.map((p) => `${p.name}#${p.id}#slot${p.slot}#${p.status}`);
 });
 const waitFor = async (pred, label) => {
   const t0 = Date.now();
