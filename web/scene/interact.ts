@@ -4,7 +4,8 @@ import type * as THREE from 'three';
 export type Interactable =
   | { kind: 'laptop'; projectId: string; label: string }
   | { kind: 'lift-call'; floor: number; label: string }
-  | { kind: 'lift-panel'; label: string };
+  | { kind: 'lift-panel'; label: string }
+  | { kind: 'about'; label: string };
 
 export const interactables = new Map<THREE.Object3D, Interactable>();
 export let cachedInteractablesList: THREE.Object3D[] = [];
